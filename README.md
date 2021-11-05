@@ -1,2 +1,1 @@
-# sbi_experiments
-Simulation Based Inference experiments
+# Simulation Based Inference experiments
