@@ -67,20 +67,20 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
     self.sigma = lambda x : rho(x)/(rho(x)+rho(1-x))
     self.g = lambda x,a,b: self.sigma(a*(x-b)+0.5) 
     # Rescaled bijection
-    self.f = lambda x: (1-self.c)*((self.g(x,self.a,self.b)-self.g(0.,self.a,self.b))/(self.g(1.,self.a,self.b)-self.g(0.,self.a,self.b)))+self.c*x
+    self.f = lambda x,a,b,c: (1-c)*((self.g(x,a,b)-self.g(0.,a,b))/(self.g(1.,a,b)-self.g(0.,a,b)))+c*x
     # Defining inverse bijection
-    self.inv_f = lambda x: fixed_point_layer(newton_solver, lambda y,x: self.f(x) - y, x, self.b)
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, lambda y,x: self.f(x,a,b,c) - y, x, b)
 
   def _forward(self, x):
-    return self.f(x)
+    return self.f(x, self.a, self.b, self.c)
 
   def _inverse(self, y):
-    return jax.vmap(self.inv_f)(y)
+    return jax.vmap(self.inv_f)(y, self.a, self.b, self.c).reshape((-1,1)) # TODO: fix for higher dimensions
   
   def _forward_log_det_jacobian(self, x):
-    def logdet_fn(x):
+    def logdet_fn(x,a,b,c):
       x = jnp.atleast_1d(x)
-      jac = jax.jacobian(self.f)(x)
+      jac = jax.jacobian(self.f, argnums=0)(x,a,b,c)
       s, logdet = jnp.linalg.slogdet(jac)
       return s*logdet
-    return jax.vmap(logdet_fn)(x)
+    return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
