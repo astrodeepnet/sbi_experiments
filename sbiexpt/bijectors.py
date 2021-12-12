@@ -69,7 +69,10 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
     # Rescaled bijection
     self.f = lambda x,a,b,c: (1-c)*((self.g(x,a,b)-self.g(0.,a,b))/(self.g(1.,a,b)-self.g(0.,a,b)))+c*x
     # Defining inverse bijection
-    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, lambda y,x: self.f(x,a,b,c) - y, x, b)
+    def fun(params, x):
+      a,b,c,y = params
+      return self.f(x,a,b,c) - y
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x), b)
 
   def _forward(self, x):
     return self.f(x, self.a, self.b, self.c)
