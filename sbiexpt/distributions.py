@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as np
 from sklearn.datasets import make_swiss_roll
-import tensorflow_probability as tfp; tfp = tfp.experimental.substrates.jax
+import tensorflow_probability as tfp; tfp = tfp.substrates.jax
 tfd = tfp.distributions
 
 def get_swiss_roll(sigma, resolution=1024):
