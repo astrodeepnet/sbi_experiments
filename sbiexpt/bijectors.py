@@ -29,16 +29,16 @@ def newton_solver(f, z_init):
 
 @partial(jax.custom_vjp, nondiff_argnums=(0, 1))
 def fixed_point_layer(solver, f, params, b):
-  z_star = solver(lambda z: f(params, z), z_init=jnp.ones(1)*b) # initialized within [-1/2/a + b, 1/2/a + b]
-  return z_star[0] # output needs to be a scalar in order to compute gradient in JAX
+  _, b, _, y = params
+  z_star = solver(lambda z: f(params, z), z_init=jnp.ones_like(y)*b) # initialized within [-1/2/a + b, 1/2/a + b]
+  return z_star
 
-def fixed_point_layer_fwd(solver, f, params, b):
-  z_star = fixed_point_layer(solver, f, params, b)
+def fixed_point_layer_fwd(solver, f, params):
+  z_star = fixed_point_layer(solver, f, params)
   return z_star, (params, z_star)
 
 def fixed_point_layer_bwd(solver, f, res, z_star_bar):
   x, z_star = res
-  z_star = z_star.reshape(-1) # needs to be an array to compute jacobian later
   _, vjp_a = jax.vjp(lambda x: f(x, z_star), x)
   _, vjp_z = jax.vjp(lambda z: f(x, z), z_star)
   return vjp_a(solver(lambda u: vjp_z(u)[0] + z_star_bar,
@@ -66,20 +66,24 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
     self.rho = rho
     self.sigma = lambda x : rho(x)/(rho(x)+rho(1-x))
     self.g = lambda x,a,b: self.sigma(a*(x-b)+0.5) 
+
     # Rescaled bijection
     self.f = lambda x,a,b,c: (1-c)*((self.g(x,a,b)-self.g(0.,a,b))/(self.g(1.,a,b)-self.g(0.,a,b)))+c*x
+
     # Defining inverse bijection
     def fun(params, x):
       a,b,c,y = params
       return self.f(x,a,b,c) - y
-    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x), b)
+
+    # Inverse bijector
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x))
 
   def _forward(self, x):
     return self.f(x, self.a, self.b, self.c)
 
   def _inverse(self, y):
-    return jax.vmap(self.inv_f)(y, self.a, self.b, self.c).reshape((-1,1)) # TODO: fix for higher dimensions
-  
+      return jax.vmap(self.inv_f)(y, self.a, self.b, self.c)
+
   def _forward_log_det_jacobian(self, x):
     def logdet_fn(x,a,b,c):
       x = jnp.atleast_1d(x)
