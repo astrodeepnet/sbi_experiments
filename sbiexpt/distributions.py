@@ -21,17 +21,19 @@ def get_swiss_roll(sigma, resolution=1024):
 def get_two_moons(sigma, resolution=1024):
   """
   Returns two moons distribution as a TFP distribution
+  
   Parameters
   ----------
   sigma: float
-  Spread of the 2 moons distribution.
+    Spread of the 2 moons distribution.
   resolution: int
-  Number of components in the gaussian mixture approximation of the
-  distribution (default: 1024)
+    Number of components in the gaussian mixture approximation of the
+    distribution (default: 1024)
+  
   Returns
   -------
   distribution: TFP distribution
-  Two moon distribution
+    Two moons distribution
   """
 
   outer_circ_x = np.cos(np.linspace(0, np.pi, resolution))
