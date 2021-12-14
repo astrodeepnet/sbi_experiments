@@ -28,8 +28,8 @@ def get_swiss_roll(sigma, resolution=1024):
   coords = np.vstack([X[:, 0], X[:, 2]])
 
   distribution = tfd.MixtureSameFamily(
-      mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
-      components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
+    mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
+    components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
   )
   return distribution
 
@@ -62,7 +62,7 @@ def get_two_moons(sigma, resolution=1024):
   coords = np.vstack([X, Y])
 
   distribution = tfd.MixtureSameFamily(
-      mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
-      components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
+    mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
+    components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
   )
   return distribution
