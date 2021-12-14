@@ -28,7 +28,7 @@ def newton_solver(f, z_init):
   return fwd_solver(g, z_init)
 
 @partial(jax.custom_vjp, nondiff_argnums=(0, 1))
-def fixed_point_layer(solver, f, params, b):
+def fixed_point_layer(solver, f, params):
   _, b, _, y = params
   z_star = solver(lambda z: f(params, z), z_init=jnp.ones_like(y)*b) # initialized within [-1/2/a + b, 1/2/a + b]
   return z_star
