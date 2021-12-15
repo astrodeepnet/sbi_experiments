@@ -12,14 +12,14 @@ __all__ = ['ImplicitRampBijector']
 def fwd_solver(f, z_init):
   def cond_fun(carry):
     z_prev, z, i = carry
-    return (i < 100) and (jnp.linalg.norm(z_prev - z) > 1e-4)
+    return lax.bitwise_and(lax.lt(i, 100), (jnp.linalg.norm(z_prev - z) > 1e-4))
 
   def body_fun(carry):
     _, z , i = carry
     return z, f(z), i+1
 
   init_carry = (z_init, f(z_init), 0)
-  _, z_star = lax.while_loop(cond_fun, body_fun, init_carry)
+  _, z_star, i = lax.while_loop(cond_fun, body_fun, init_carry)
   return z_star
 
 def newton_solver(f, z_init):
