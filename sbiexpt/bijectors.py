@@ -68,7 +68,15 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
     self.g = lambda x,a,b: self.sigma(a*(x-b)+0.5) 
 
     # Rescaled bijection
-    self.f = lambda x,a,b,c: (1-c)*((self.g(x,a,b)-self.g(0.,a,b))/(self.g(1.,a,b)-self.g(0.,a,b)))+c*x
+    def f(x, a, b, c):
+      b = (b - 1./(2*a))
+      diff = x - b
+      zs = jnp.stack([diff, -b*jnp.ones_like(x), 1 - b*jnp.ones_like(x)],axis=0)
+      zs = zs * a
+      y, y0, y1 = self.sigma(zs)
+      y = (y - y0)/ (y1 - y0)
+      return y*(1-c) + c *x
+    self.f = f
 
     # Defining inverse bijection
     def fun(params, x):
