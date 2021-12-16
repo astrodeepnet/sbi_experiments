@@ -93,6 +93,7 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       return jax.vmap(self.inv_f)(y, self.a, self.b, self.c)
 
   def _forward_log_det_jacobian(self, x):
+    x = x.reshape(self.b.shape)
     def logdet_fn(x,a,b,c):
       x = jnp.atleast_1d(x)
       jac = jax.jacobian(self.f, argnums=0)(x,a,b,c)
