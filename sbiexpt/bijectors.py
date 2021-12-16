@@ -59,7 +59,7 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       rho: function of x that defines a ramp function between 0 and 1
       a,b,c: scalar parameters of the coupling layer.
     """
-    super(ImplicitRampBijector, self).__init__(forward_min_event_ndims=0, name = name)
+    super(self.__class__, self).__init__(forward_min_event_ndims=0, name = name)
     self.a = a
     self.b = b
     self.c = c
@@ -98,5 +98,5 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       x = jnp.atleast_1d(x)
       jac = jax.jacobian(self.f, argnums=0)(x,a,b,c)
       s, logdet = jnp.linalg.slogdet(jac)
-      return s*logdet
+      return jnp.atleast_1d(s*logdet)
     return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
