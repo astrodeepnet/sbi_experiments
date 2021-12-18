@@ -7,19 +7,14 @@ tfd = tfp.distributions
 
 __all__ = ['ImplicitRampBijector']
 
-
 @partial(jax.jit, static_argnums=(0,))
 def fwd_solver(f, z_init):
-  def cond_fun(carry):
-    z_prev, z, i = carry
-    return lax.bitwise_and(lax.lt(i, 100), (jnp.linalg.norm(z_prev - z) > 1e-4))
+  def body_fun(carry, i):
+    _, z  = carry
+    return (z, f(z)), i
 
-  def body_fun(carry):
-    _, z , i = carry
-    return z, f(z), i+1
-
-  init_carry = (z_init, f(z_init), 0)
-  _, z_star, i = lax.while_loop(cond_fun, body_fun, init_carry)
+  init_carry = (z_init, f(z_init))
+  (_, z_star), i = lax.scan(body_fun, init_carry, jnp.arange(10))
   return z_star
 
 def newton_solver(f, z_init):
