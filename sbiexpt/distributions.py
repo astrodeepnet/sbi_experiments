@@ -18,7 +18,7 @@ def get_swiss_roll(sigma, resolution=1024):
   )
   return distribution
 
-def get_two_moons(sigma, resolution=1024):
+def get_two_moons(sigma, resolution=1024, normalized=False):
   """
   Returns two moons distribution as a TFP distribution
   
@@ -44,6 +44,8 @@ def get_two_moons(sigma, resolution=1024):
   X = np.append(outer_circ_x, inner_circ_x)
   Y = np.append(outer_circ_y, inner_circ_y)
   coords = np.vstack([X,Y])
+  if normalized:
+    coords = coords / 5 + 0.45
 
   distribution = tfd.MixtureSameFamily(
   mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution)/resolution/2),

@@ -1,46 +1,31 @@
 import jax
 from jax import lax
 import jax.numpy as jnp
+from jaxopt import Bisection
 from functools import partial
 import tensorflow_probability as tfp; tfp = tfp.substrates.jax
 tfd = tfp.distributions
 
 __all__ = ['ImplicitRampBijector']
 
-@partial(jax.jit, static_argnums=(0,))
-def fwd_solver(f, z_init):
-  def body_fun(carry, i):
-    _, z  = carry
-    return (z, f(z)), i
-
-  init_carry = (z_init, f(z_init))
-  (_, z_star), i = lax.scan(body_fun, init_carry, jnp.arange(100))
+@partial(jax.custom_vjp, nondiff_argnums=(0,))
+def fixed_point_layer(f, params):
+  z_star = tfp.math.find_root_chandrupatla(lambda z: f(params, z), low=0., high=1.).estimated_root
+  print('tu', z_star.shape)
   return z_star
 
-def newton_solver(f, z_init):
-  f_root = lambda z: f(z)
-  g = lambda z: z - jnp.linalg.solve(jax.jacobian(f_root)(z), f_root(z))
-  return fwd_solver(g, z_init)
-
-@partial(jax.custom_vjp, nondiff_argnums=(0, 1))
-def fixed_point_layer(solver, f, params):
-  b = params[1]
-  y = params[-1]
-  #z_star = solver(lambda z: f(params, z), z_init=jnp.ones_like(y)*jnp.mean(b)) # initialized within [-1/2/a + b, 1/2/a + b]
-  z_star = tfp.math.find_root_chandrupatla(lambda z: f(params, z), low=0., high=1.)
-  return z_star.estimated_root
-
-def fixed_point_layer_fwd(solver, f, params):
-  z_star = fixed_point_layer(solver, f, params)
+def fixed_point_layer_fwd(f, params):
+  z_star = fixed_point_layer(f, params)
   return z_star, (params, z_star)
 
-def fixed_point_layer_bwd(solver, f, res, z_star_bar):
+def fixed_point_layer_bwd(f, res, z_star_bar):
   x, z_star = res
   _, vjp_a = jax.vjp(lambda x: f(x, z_star), x)
   _, vjp_z = jax.vjp(lambda z: f(x, z), z_star)
-  return vjp_a(solver(lambda u: vjp_z(u)[0] + z_star_bar,
-                      z_init=jnp.ones_like(z_star)
-                      ))
+  print('to',z_star_bar.shape,x[0].shape, z_star.shape)
+  y = tfp.math.find_root_chandrupatla(lambda u: vjp_z(jnp.atleast_1d(u))[0] + z_star_bar).estimated_root
+  print('tdu', y.shape)
+  return vjp_a(y)
 
 fixed_point_layer.defvjp(fixed_point_layer_fwd, fixed_point_layer_bwd)
 
@@ -84,7 +69,7 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       a,b,c,y = params
       return self.f(x,a,b,c) - y
     # Inverse bijector
-    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x))
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(fun, (a,b,c,x))
 
   def _forward(self, x):
     return self.f(x, self.a, self.b, self.c)
@@ -141,17 +126,20 @@ class MixtureImplicitRampBijector(tfp.bijectors.Bijector):
     self.f = f
 
     # Defining inverse bijection
-    def fun(params, x):
-      a,b,c,p,y = params
-      return self.f(x,a,b,c,p) - y
+    def fun(x, aux):
+      a,b,c,p,y = aux
+      return jnp.squeeze(self.f(x,a,b,c,p) - y)
+    def inv_f(x,a,b,c,p):
+      bisec = Bisection(optimality_fun=fun, lower=0.01, upper=0.99, check_bracket=False, unroll=True)
+      return bisec.run(aux=(a,b,c, p,x)).params
     # Inverse bijector
-    self.inv_f = lambda x,a,b,c,p: fixed_point_layer(newton_solver, fun, (a,b,c, p, x))
+    self.inv_f = inv_f
 
   def _forward(self, x):
     return jax.vmap(self.f)(x, self.a, self.b, self.c, self.p)
 
   def _inverse(self, y):
-      return jax.vmap(self.inv_f)(y, self.a, self.b, self.c, self.p)
+      return jax.vmap(self.inv_f)(y, self.a, self.b, self.c, self.p).reshape(y.shape)
 
   def _forward_log_det_jacobian(self, x):
     x = x.reshape([self.b.shape[0], self.b.shape[-1]])
