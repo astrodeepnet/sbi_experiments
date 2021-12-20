@@ -55,7 +55,7 @@ class SmoothCompactBumpFunction(tfp.bijectors.AutoCompositeTensorBijector):
 
     def _forward_log_det_jacobian(self, x):
       grad = gradfinv(x,self.a,self.b,self.c)
-      if x.ndim == 1:
-        grad = grad[:, jnp.newaxis]
-
-      return jnp.log(jnp.abs(jnp.prod(grad, axis=1)))
+      if x.shape[1]==1:
+        return jnp.log(jnp.abs(grad))
+      else :
+        return jnp.log(jnp.abs(jnp.prod(grad, axis=1)))
