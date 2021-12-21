@@ -1,27 +1,15 @@
-import jax
 import jax.numpy as np
 from sklearn.datasets import make_swiss_roll
 import tensorflow_probability as tfp; tfp = tfp.substrates.jax
 tfd = tfp.distributions
 
+__all__ = ['get_swiss_roll', 'get_two_moons']
+
+
 def get_swiss_roll(sigma, resolution=1024):
   """
-  Generate a swiss roll dataset.
-  """
-  n_samples = 2*resolution
-  X, _ = make_swiss_roll(n_samples, noise=0)
-  coords = np.vstack([X[:, 0], X[:, 2]])
+  Generate a TFP approximate distribution of the swiss roll dataset
 
-  distribution = tfd.MixtureSameFamily(
-  mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution)/resolution/2),
-  components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
-  )
-  return distribution
-
-def get_two_moons(sigma, resolution=1024, normalized=False):
-  """
-  Returns two moons distribution as a TFP distribution
-  
   Parameters
   ----------
   sigma: float
@@ -29,7 +17,36 @@ def get_two_moons(sigma, resolution=1024, normalized=False):
   resolution: int
     Number of components in the gaussian mixture approximation of the
     distribution (default: 1024)
-  
+
+  Returns
+  -------
+  distribution: TFP distribution
+    Swiss roll distribution
+  """
+  n_samples = 2 * resolution
+  X, _ = make_swiss_roll(n_samples, noise=0)
+  coords = np.vstack([X[:, 0], X[:, 2]])
+
+  distribution = tfd.MixtureSameFamily(
+    mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
+    components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
+  )
+  return distribution
+
+def get_two_moons(sigma, resolution=1024, normalized=False):
+  """
+  Generate a TFP approximate distribution of the two moons dataset
+
+  Parameters
+  ----------
+  sigma: float
+    Spread of the 2 moons distribution.
+  resolution: int
+    Number of components in the gaussian mixture approximation of the
+    distribution (default: 1024)
+  normalized: bool
+    Whether to recenter the distribution on [0,1]
+
   Returns
   -------
   distribution: TFP distribution
@@ -43,12 +60,13 @@ def get_two_moons(sigma, resolution=1024, normalized=False):
 
   X = np.append(outer_circ_x, inner_circ_x)
   Y = np.append(outer_circ_y, inner_circ_y)
+
   coords = np.vstack([X,Y])
   if normalized:
     coords = coords / 5 + 0.45
 
   distribution = tfd.MixtureSameFamily(
-  mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution)/resolution/2),
-  components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
+    mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
+    components_distribution=tfd.MultivariateNormalDiag(loc=coords.T, scale_identity_multiplier=sigma)
   )
   return distribution
