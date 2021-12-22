@@ -126,7 +126,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
       x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
       x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
 
-      y, y0, y1 = jnp.split(f(jnp.stack([x,x0,x1],axis=-1), a, b, c),3, axis=-1)
+      y, y0, y1 = jnp.split(sigmoid(jnp.stack([x,x0,x1],axis=-1), a, b, c),3, axis=-1)
 
       return (y - y0)/(y1 - y0)
     self.f = f
