@@ -95,3 +95,61 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       s, logdet = jnp.linalg.slogdet(jac)
       return jnp.atleast_1d(s*logdet)
     return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
+
+
+class AffineSigmoidBijector(tfp.bijectors.Bijector):
+  """
+  Bijector based on a ramp function, and implemented using an implicit 
+  layer. 
+  """
+
+  def __init__(self, a, b, c,  name = 'AffineSigmoidBijector'):
+    """
+    Args:
+      rho: function of x that defines a ramp function between 0 and 1
+      a,b,c: scalar parameters of the coupling layer.
+    """
+    super(self.__class__, self).__init__(forward_min_event_ndims=0, name = name)
+    self.a = a
+    self.b = b
+    self.c = c
+
+    def sigmoid(x, a, b, c):
+      z = jnp.log(x/(1-x)) * a + b
+      y = jax.nn.sigmoid(z) * (1 - c) + c * x
+      return y 
+
+    # Rescaled bijection
+    def f(x, a, b, c):
+      a_in, b_in = [0. - 1e-1, 1. + 1e-1]
+      
+      x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
+      x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
+
+      y, y0, y1 = jnp.split(f(jnp.stack([x,x0,x1],axis=-1), a, b, c),3, axis=-1)
+
+      return (y - y0)/(y1 - y0)
+    self.f = f
+
+    # Defining inverse bijection
+    def fun(params, x):
+      a,b,c,y = params
+      return self.f(x,a,b,c) - y
+
+    # Inverse bijector
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x))
+
+  def _forward(self, x):
+    return self.f(x, self.a, self.b, self.c)
+
+  def _inverse(self, y):
+      return jax.vmap(self.inv_f)(y, self.a, self.b, self.c)
+
+  def _forward_log_det_jacobian(self, x):
+    x = x.reshape(self.b.shape)
+    def logdet_fn(x,a,b,c):
+      x = jnp.atleast_1d(x)
+      jac = jax.jacobian(self.f, argnums=0)(x,a,b,c)
+      s, logdet = jnp.linalg.slogdet(jac)
+      return jnp.atleast_1d(s*logdet)
+    return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
