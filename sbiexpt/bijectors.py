@@ -115,7 +115,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     self.c = c
 
     def sigmoid(x, a, b, c):
-      z = jnp.log(x/(1-x)) * a + b
+      z = jax.scipy.special.logit(x) * a + b
       y = jax.nn.sigmoid(z) * (1 - c) + c * x
       return y 
 
@@ -126,8 +126,10 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
       x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
       x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
 
-      y, y0, y1 = jnp.split(sigmoid(jnp.stack([x,x0,x1],axis=-1), a, b, c),3, axis=-1)
-
+      y = sigmoid(x, a, b, c)
+      y0 = sigmoid(x0, a, b, c)
+      y1 = sigmoid(x1, a, b, c)
+      
       return (y - y0)/(y1 - y0)
     self.f = f
 
@@ -140,7 +142,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x))
 
   def _forward(self, x):
-    return self.f(x, self.a, self.b, self.c)
+    return jax.vmap(self.f)(x, self.a, self.b, self.c)
 
   def _inverse(self, y):
       return jax.vmap(self.inv_f)(y, self.a, self.b, self.c)
