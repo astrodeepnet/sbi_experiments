@@ -123,6 +123,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     def f(x, a, b, c):
       a_in, b_in = [0. - 1e-1, 1. + 1e-1]
       
+      x = (x - a_in) / (b_in - a_in)
       x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
       x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
 
