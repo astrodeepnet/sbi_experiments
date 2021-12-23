@@ -1,6 +1,7 @@
 import jax
 from jax import lax
 import jax.numpy as jnp
+from jaxopt import Bisection
 from functools import partial
 import tensorflow_probability as tfp; tfp = tfp.substrates.jax
 tfd = tfp.distributions
@@ -134,14 +135,19 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
       return (y - y0)/(y1 - y0)
     self.f = f
 
-    # Defining inverse bijection
-    def fun(params, x):
-      a,b,c,y = params
-      return self.f(x,a,b,c) - y
-
     # Inverse bijector
-    self.inv_f = lambda x,a,b,c: fixed_point_layer(newton_solver, fun, (a,b,c,x))
-
+    def inv_f(x,a,b,c):
+      x = x.squeeze()
+      a = a.squeeze()
+      b = b.squeeze()
+      c = c.squeeze()
+      def fun(x, aux):
+        a,b,c,y = aux
+        return jnp.squeeze(self.f(x,a,b,c) - y)
+      bisec = Bisection(optimality_fun=fun, lower=0.001, upper=0.999, check_bracket=False, jit=True)
+      return bisec.run(aux=(a,b,c,x)).params.reshape([1])
+    self.inv_f = inv_f
+    
   def _forward(self, x):
     return jax.vmap(self.f)(x, self.a, self.b, self.c)
 
