@@ -34,6 +34,7 @@ def get_swiss_roll(sigma, resolution=1024):
   return distribution
 
 def get_two_moons(sigma, resolution=1024, normalized=False):
+
   """
   Generate a TFP approximate distribution of the two moons dataset
 
@@ -46,6 +47,7 @@ def get_two_moons(sigma, resolution=1024, normalized=False):
     distribution (default: 1024)
   normalized: bool
     Whether to recenter the distribution on [0,1]
+
 
   Returns
   -------
