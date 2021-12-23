@@ -33,11 +33,10 @@ def get_swiss_roll(sigma, resolution=1024):
   )
   return distribution
 
+def get_two_moons(sigma, resolution=1024, normalized=False):
 
-def get_two_moons(sigma, resolution=1024):
   """
   Generate a TFP approximate distribution of the two moons dataset
-
   Parameters
   ----------
   sigma: float
@@ -45,7 +44,8 @@ def get_two_moons(sigma, resolution=1024):
   resolution: int
     Number of components in the gaussian mixture approximation of the
     distribution (default: 1024)
-
+  normalized: bool
+    Whether to recenter the distribution on [0,1]
   Returns
   -------
   distribution: TFP distribution
@@ -59,7 +59,10 @@ def get_two_moons(sigma, resolution=1024):
 
   X = np.append(outer_circ_x, inner_circ_x)
   Y = np.append(outer_circ_y, inner_circ_y)
-  coords = np.vstack([X, Y])
+
+  coords = np.vstack([X,Y])
+  if normalized:
+    coords = coords / 5 + 0.45
 
   distribution = tfd.MixtureSameFamily(
     mixture_distribution=tfd.Categorical(probs=np.ones(2*resolution) / resolution / 2),
