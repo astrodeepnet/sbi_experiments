@@ -23,6 +23,13 @@ def newton_solver(f, z_init):
   g = lambda z: z - jnp.linalg.solve(jax.jacobian(f_root)(z), f_root(z))
   return fwd_solver(g, z_init)
 
+def jaxopt_solver(f, z_init):
+  f_root = lambda z: jnp.squeeze(f(z))
+  bisec = Bisection(optimality_fun=f_root, lower=0.001, upper=0.999, check_bracket=False)
+  return bisec.run().params
+  #g = lambda z: z - jnp.linalg.solve(jax.jacobian(f_root)(z), f_root(z))
+  #return fwd_solver(g, z_init)
+
 @partial(jax.custom_vjp, nondiff_argnums=(0, 1))
 def fixed_point_layer(solver, f, params):
   _, b, _, y = params
@@ -135,19 +142,27 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
       return (y - y0)/(y1 - y0)
     self.f = f
 
+    # Defining inverse bijection
+    def fun(params, x):
+      a,b,c,y = params
+      return self.f(x,a,b,c) - y
+
     # Inverse bijector
-    def inv_f(x,a,b,c):
-      x = x.squeeze()
-      a = a.squeeze()
-      b = b.squeeze()
-      c = c.squeeze()
-      def fun(x, aux):
-        a,b,c,y = aux
-        return jnp.squeeze(self.f(x,a,b,c) - y)
-      bisec = Bisection(optimality_fun=fun, lower=0.001, upper=0.999, check_bracket=False, jit=True)
-      return bisec.run(aux=(a,b,c,x)).params.reshape([1])
-    self.inv_f = inv_f
-    
+    self.inv_f = lambda x,a,b,c: fixed_point_layer(jaxopt_solver, fun, (a,b,c,x))
+
+    # # Inverse bijector
+    # def inv_f(x,a,b,c):
+    #   x = x.squeeze()
+    #   a = a.squeeze()
+    #   b = b.squeeze()
+    #   c = c.squeeze()
+    #   def fun(x, aux):
+    #     a,b,c,y = aux
+    #     return jnp.squeeze(self.f(x,a,b,c) - y)
+    #   bisec = Bisection(optimality_fun=fun, lower=0.001, upper=0.999, check_bracket=False, jit=True)
+    #   return bisec.run(aux=(a,b,c,x)).params.reshape([1])
+    # self.inv_f = inv_f
+
   def _forward(self, x):
     return jax.vmap(self.f)(x, self.a, self.b, self.c)
 
