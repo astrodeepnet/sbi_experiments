@@ -13,5 +13,6 @@ setup(
     'jaxlib>=0.1.74',
     'tensorflow_probability>=0.14.1',
     'scikit-learn>=0.21'
+    'jaxopt>=0.2'
   ],
 )
