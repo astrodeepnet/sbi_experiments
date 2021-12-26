@@ -99,15 +99,14 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     self.inv_f = make_inverse_fn(f)
 
   def _forward(self, x):
-    return jax.vmap(self.f)(x, self.a, self.b, self.c)
+    return jax.vmap(self.f)([self.a, self.b, self.c], x)
 
   def _inverse(self, y):
-      return jax.vmap(self.inv_f)(y, self.a, self.b, self.c)
+      return jax.vmap(self.inv_f)([self.a, self.b, self.c], y[...,0]).reshape(y.shape)
 
   def _forward_log_det_jacobian(self, x):
     def logdet_fn(x,a,b,c):
-      x = jnp.atleast_1d(x)
-      g = jax.grad(self.f, argnums=1)([a,b,c], x)
-      s, logdet = jnp.linalg.slogdet(jnp.atleast_2d([g]))
+      g = jax.grad(self.f, argnums=1)([a,b,c], x[...,0])
+      s, logdet = jnp.linalg.slogdet(jnp.atleast_2d(g))
       return s*logdet
     return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
