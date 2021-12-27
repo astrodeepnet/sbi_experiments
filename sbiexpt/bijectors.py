@@ -154,7 +154,7 @@ class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
       
       y = (y - y0)/(y1 - y0)
 
-      return jnp.sum(p[..., jnp.newaxis]*(y*(1-c) + c *x), axis=0)
+      return jnp.sum(p*(y*(1-c) + c *x), axis=0)
     self.f = f
 
     # Inverse bijector
