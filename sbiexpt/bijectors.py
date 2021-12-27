@@ -75,7 +75,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     self.c = c
 
     def sigmoid(x, a, b, c):
-      z = jax.scipy.special.logit(x) * a + b
+      z = (jax.scipy.special.logit(x) +b )* a
       y = jax.nn.sigmoid(z) * (1 - c) + c * x
       return y 
 
@@ -135,7 +135,7 @@ class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
     self.p = p
 
     def sigmoid(x, a, b, c):
-      z = jax.scipy.special.logit(x) * a + b
+      z = (jax.scipy.special.logit(x) +b )* a
       y = jax.nn.sigmoid(z) * (1 - c) + c * x
       return y 
 
