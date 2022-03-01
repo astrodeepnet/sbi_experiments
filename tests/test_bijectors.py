@@ -12,16 +12,17 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from sbiexpt.bijectors import ImplicitRampBijector
+from sbiexpt.bijectors import MixtureAffineSigmoidBijector
 
 
 def _make_inv_bijector(rho):
   def fun(t, a, b, c):
     batch_size = len(t)
-    bijector = ImplicitRampBijector(rho, 
+    bijector = ImplicitRampBijector(rho,
                               jnp.ones((batch_size,))*a,
                               jnp.ones((batch_size,))*b,
                               jnp.ones((batch_size,))*c)
-    y = bijector.forward(t)*1.     
+    y = bijector.forward(t)*1.
     return bijector.inverse(y).squeeze()
   return fun
 
@@ -32,7 +33,7 @@ _test_params = [ {'a':2., 'b':0.25, 'c':0.1},
 
 
 def test_ramp_bijector_score():
-  """ This test function just checks that we can compute the score 
+  """ This test function just checks that we can compute the score
   correctly on a Normalizing Flow using the ramp bijector.
   """
   batch_size = 100
@@ -44,7 +45,7 @@ def test_ramp_bijector_score():
                                                                       jnp.ones((1,))*b,
                                                                       jnp.ones((1,))*c))
     return flow.log_prob(x)
-  
+
   fake_data = jnp.zeros([batch_size, 1])+0.33333
   # With these parameters, the bijector should be the identity, so the log prob should be the same as that of the normal distribution
   # same for the score
@@ -61,7 +62,7 @@ def test_ramp_bijector_inverse_cubic():
   """
   batch_size = 100
   x = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size])
-  
+
   test_inv = jax.jit(_make_inv_bijector(lambda x: x**3))
   for params in _test_params:
     assert_allclose(test_inv(x, **params), x, rtol=2e-3, atol=1e-6)
@@ -92,3 +93,116 @@ def test_ramp_bijector_inverse_exp():
 
 
 
+def _make_inv_forward_MixtureAffineSigmoidBijector(t, a, b, c, nb_dimension, nb_component):
+  batch_size = len(t)
+
+  p = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,nb_dimension,nb_component])
+  p = jax.nn.softmax(p)
+
+  bijector = MixtureAffineSigmoidBijector(
+                              jnp.ones([batch_size,nb_dimension,nb_component])*a,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*b,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*c,
+                              p)
+
+  return bijector.inverse(bijector.forward(t*1)*1)
+
+_test_params_MASB = [ {'a':2., 'b':0.25, 'c':0.1, 'nb_dimension':2, 'nb_component':4},
+                          {'a':0.01, 'b':0.75, 'c':0.1, 'nb_dimension':3, 'nb_component':5},
+                          {'a':1., 'b':0.05, 'c':0.99, 'nb_dimension':4, 'nb_component':2}]
+
+def test_bijectorMixtureAffineSigmoidBijector_inverse_forward():
+  """
+  Testing inverse of MixtureAffineSigmoidBijector
+  """
+  batch_size = 100
+
+  for params in _test_params_MASB:
+    x = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,params['nb_dimension']])
+    assert_allclose(_make_inv_forward_MixtureAffineSigmoidBijector(x, **params), x, rtol=2e-2, atol=1e-5)
+
+
+
+def _make_inv_MixtureAffineSigmoidBijector(t, a, b, c, nb_dimension, nb_component):
+  batch_size = len(t)
+
+  p = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,nb_dimension,nb_component])
+  p = jax.nn.softmax(p)
+
+  bijector = MixtureAffineSigmoidBijector(
+                              jnp.ones([batch_size,nb_dimension,nb_component])*a,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*b,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*c,
+                              p)
+
+  return bijector.inverse(t*1)
+
+
+def test_bijectorMixtureAffineSigmoidBijector_inverse_dim():
+  """
+  Testing inverse dimension of MixtureAffineSigmoidBijector
+  """
+  batch_size = 100
+
+  for params in _test_params_MASB:
+    x = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,params['nb_dimension']])
+    assert_allclose(_make_inv_MixtureAffineSigmoidBijector(x, **params).shape, (batch_size,params['nb_dimension']) , rtol=2e-3, atol=1e-6)
+
+
+
+def _make_forward_MixtureAffineSigmoidBijector(t, a, b, c, nb_dimension, nb_component):
+  batch_size = len(t)
+
+  p = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,nb_dimension,nb_component])
+  p = jax.nn.softmax(p)
+
+  bijector = MixtureAffineSigmoidBijector(
+                              jnp.ones([batch_size,nb_dimension,nb_component])*a,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*b,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*c,
+                              p)
+
+  return bijector.forward(t*1)
+
+_test_params_inv_MASB = [ {'a':2., 'b':0.25, 'c':0.1, 'nb_dimension':2, 'nb_component':4},
+                          {'a':0.01, 'b':0.75, 'c':0.1, 'nb_dimension':3, 'nb_component':5},
+                          {'a':1., 'b':0.05, 'c':0.99, 'nb_dimension':4, 'nb_component':2}]
+
+def test_bijectorMixtureAffineSigmoidBijector_forward_dim():
+  """
+  Testing forward dimension of MixtureAffineSigmoidBijector
+  """
+  batch_size = 100
+
+  for params in _test_params_inv_MASB:
+    x = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,params['nb_dimension']])
+    assert_allclose(_make_forward_MixtureAffineSigmoidBijector(x, **params).shape, (batch_size,params['nb_dimension']) , rtol=2e-3, atol=1e-6)
+
+
+def _make_fldj_MixtureAffineSigmoidBijector(t, a, b, c, nb_dimension, nb_component):
+  batch_size = len(t)
+
+  p = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,nb_dimension,nb_component])
+  p = jax.nn.softmax(p)
+
+  bijector = MixtureAffineSigmoidBijector(
+                              jnp.ones([batch_size,nb_dimension,nb_component])*a,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*b,
+                              jnp.ones([batch_size,nb_dimension,nb_component])*c,
+                              p)
+
+  return bijector.forward_log_det_jacobian(t*1)
+
+_test_params_inv_MASB = [ {'a':2., 'b':0.25, 'c':0.1, 'nb_dimension':2, 'nb_component':4},
+                          {'a':0.01, 'b':0.75, 'c':0.1, 'nb_dimension':3, 'nb_component':5},
+                          {'a':1., 'b':0.05, 'c':0.99, 'nb_dimension':4, 'nb_component':2}]
+
+def test_bijectorMixtureAffineSigmoidBijector_fldj_dim():
+  """
+  Testing forward_log_det_jacobian dimension of MixtureAffineSigmoidBijector
+  """
+  batch_size = 100
+
+  for params in _test_params_inv_MASB:
+    x = jax.random.uniform(jax.random.PRNGKey(0), shape=[batch_size,params['nb_dimension']])
+    assert_allclose(_make_fldj_MixtureAffineSigmoidBijector(x, **params).shape, (batch_size,params['nb_dimension']) , rtol=2e-3, atol=1e-6)
