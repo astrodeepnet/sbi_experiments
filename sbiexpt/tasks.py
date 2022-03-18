@@ -75,7 +75,7 @@ def LotkaVolterra(theta, init, time, key):
 
 
 @jax.jit
-def get_batch(key, batch_size=10000, time=5):
+def get_batch(key, batch_size=10000, time=10):
   """
   Generate dataset (theta, observation, score).
   Parameters
@@ -96,7 +96,7 @@ def get_batch(key, batch_size=10000, time=5):
   key1, key2, key3 = jax.random.split(key,3)
 
   theta = tfd.Independent(tfd.LogNormal(jnp.array([-0.125,-3,-0.125,-3]), 0.5*jnp.ones(4)),1).sample(batch_size, key1)
-  init = tfd.LogNormal(jnp.ones(2), 0.4*jnp.ones(2)).sample(batch_size, key2)
+  init = tfd.LogNormal(jnp.log(10*jnp.ones(2)), 0.8*jnp.ones(2)).sample(batch_size, key2)
 
   score, x = jax.vmap(jax.grad(lambda params, z : LotkaVolterra(params, z, time=time, key=key3), has_aux=True))(theta, init)
   x = x.reshape(batch_size,-1)
