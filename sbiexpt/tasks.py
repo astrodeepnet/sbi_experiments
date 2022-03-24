@@ -40,7 +40,7 @@ def equation(y,t, theta):
 
 
 
-def LotkaVolterra(theta, init, time, key):
+def LotkaVolterra(theta, init, key):
   """
   Generate observation x and compute log likelihood(x) + log prior(theta).
   Parameters
@@ -49,17 +49,16 @@ def LotkaVolterra(theta, init, time, key):
     Model parameters.
   init:
     Initial conditions.
-  time: float
-    The time.
   key: PRNGKeyArray
   Returns
   -------
     Log propbability and observation.
   """
 
-  ts = jnp.arange(float(time))
+  ts = ts = jnp.arange(0.,20.,0.1)
 
   z = odeint(equation, init, ts, theta, rtol=1e-9, atol=1e-9)
+  z = z.T[:,::21].reshape(1, -1)
 
   # prior over model parameters alpha, beta, gamma and delta
   prior = tfd.Independent(tfd.LogNormal(jnp.array([-0.125,-3,-0.125,-3]), 0.5*jnp.ones(4)),1)
@@ -75,30 +74,56 @@ def LotkaVolterra(theta, init, time, key):
 
 
 @jax.jit
-def get_batch(key, batch_size=10000, time=10):
+def get_batch_fixed_init_cond(key, batch_size=10000):
   """
-  Generate dataset (theta, observation, score).
+  Generate dataset (theta, observation, score) with initial conditions [x0,y0] = [30,1].
   Parameters
   ----------
   key: PRNGKeyArray
   batch_size: int
     Size of the batch.
-  time: float
-    The time.
   Returns
   -------
     Dataset (theta, observation, score).
     'Theta': the model parameters.
-    'Observation': the simulations from p(x|theta). The shape is (batch_size, time*2).
+    'Observation': the simulations from p(x|theta). The shape is (batch_size, time*2) with time = 10.
     'Score': the joint score Grad_theta(log p(theta|x,z)) with z the initial conditions.
   """
 
-  key1, key2, key3 = jax.random.split(key,3)
+  key1, key2 = jax.random.split(key,2)
+
+  theta = tfd.Independent(tfd.LogNormal(jnp.array([-0.125,-3,-0.125,-3]), 0.5*jnp.ones(4)),1).sample(batch_size, key1)
+  init = jnp.array([30.,1.])*jnp.ones([batch_size,2])
+
+  score, x = jax.vmap(jax.grad(lambda params, z, key : LotkaVolterra(params, z, key=key), has_aux=True))(theta, init,jax.random.split(key,batch_size))
+  x = x.reshape(batch_size,-1)
+
+  return theta, x, score
+
+
+@jax.jit
+def get_batch_NOTfixed_init_cond(key, batch_size=10000):
+  """
+  Generate dataset (theta, observation, score) with stochastic initial conditions sampled from LogNormal(log(10),0.8).
+  Parameters
+  ----------
+  key: PRNGKeyArray
+  batch_size: int
+    Size of the batch.
+  Returns
+  -------
+    Dataset (theta, observation, score).
+    'Theta': the model parameters.
+    'Observation': the simulations from p(x|theta). The shape is (batch_size, time*2) with time = 10.
+    'Score': the joint score Grad_theta(log p(theta|x,z)) with z the initial conditions.
+  """
+
+  key1, key2 = jax.random.split(key,2)
 
   theta = tfd.Independent(tfd.LogNormal(jnp.array([-0.125,-3,-0.125,-3]), 0.5*jnp.ones(4)),1).sample(batch_size, key1)
   init = tfd.LogNormal(jnp.log(10*jnp.ones(2)), 0.8*jnp.ones(2)).sample(batch_size, key2)
 
-  score, x = jax.vmap(jax.grad(lambda params, z : LotkaVolterra(params, z, time=time, key=key3), has_aux=True))(theta, init)
+  score, x = jax.vmap(jax.grad(lambda params, z, key : LotkaVolterra(params, z, key=key), has_aux=True))(theta, init,jax.random.split(key,batch_size))
   x = x.reshape(batch_size,-1)
 
   return theta, x, score
