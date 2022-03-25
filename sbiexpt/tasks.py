@@ -62,14 +62,14 @@ def LotkaVolterra(theta, init, key):
 
   # prior over model parameters alpha, beta, gamma and delta
   prior = tfd.Independent(tfd.LogNormal(jnp.array([-0.125,-3,-0.125,-3]), 0.5*jnp.ones(4)),1)
-  likelihood = tfd.Independent(tfd.LogNormal(jnp.log(z.T),0.1),2)
+  likelihood = tfd.Independent(tfd.LogNormal(jnp.log(z),0.1),1)
 
   proportion = likelihood.sample(seed=key)
 
   posterior = likelihood.log_prob(jax.lax.stop_gradient(proportion))
   posterior += prior.log_prob(theta)
 
-  return posterior, proportion
+  return posterior.reshape(), proportion
 
 
 
