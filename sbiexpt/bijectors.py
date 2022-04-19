@@ -8,8 +8,8 @@ __all__ = ['ImplicitRampBijector']
 
 class ImplicitRampBijector(tfp.bijectors.Bijector):
   """
-  Bijector based on a ramp function, and implemented using an implicit 
-  layer. 
+  Bijector based on a ramp function, and implemented using an implicit
+  layer.
   """
 
   def __init__(self, rho, a, b, c,  name = 'ImplicitRampBijector'):
@@ -24,7 +24,7 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
     self.c = c
     self.rho = rho
     self.sigma = lambda x : rho(x)/(rho(x)+rho(1-x))
-    self.g = lambda x,a,b: self.sigma(a*(x-b)+0.5) 
+    self.g = lambda x,a,b: self.sigma(a*(x-b)+0.5)
 
     # Rescaled bijection
     def f(params, x):
@@ -53,12 +53,12 @@ class ImplicitRampBijector(tfp.bijectors.Bijector):
       s, logdet = jnp.linalg.slogdet(jnp.atleast_2d(g))
       return s*logdet
     return jax.vmap(logdet_fn)(x, self.a, self.b, self.c)
-    
+
 
 class AffineSigmoidBijector(tfp.bijectors.Bijector):
   """
-  Bijector based on a ramp function, and implemented using an implicit 
-  layer. 
+  Bijector based on a ramp function, and implemented using an implicit
+  layer.
   """
 
   def __init__(self, a, b, c,  name = 'AffineSigmoidBijector'):
@@ -75,13 +75,13 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
     def sigmoid(x, a, b, c):
       z = (jax.scipy.special.logit(x) +b )* a
       y = jax.nn.sigmoid(z) * (1 - c) + c * x
-      return y 
+      return y
 
     # Rescaled bijection
     def f(params, x):
       a, b, c = params
       a_in, b_in = [0. - 1e-1, 1. + 1e-1]
-      
+
       x = (x - a_in) / (b_in - a_in)
       x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
       x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
@@ -89,7 +89,7 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
       y = sigmoid(x, a, b, c)
       y0 = sigmoid(x0, a, b, c)
       y1 = sigmoid(x1, a, b, c)
-      
+
       return (y - y0)/(y1 - y0)
     self.f = f
 
@@ -112,12 +112,10 @@ class AffineSigmoidBijector(tfp.bijectors.Bijector):
 
 class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
   """
-  Bijector based on a ramp function, and implemented using an implicit 
-  layer. 
-
+  Bijector based on a ramp function, and implemented using an implicit
+  layer.
   This implementation is based on the Smooth Normalizing Flows described
   in: https://arxiv.org/abs/2110.00351
-
   """
 
   def __init__(self, a, b, c, p, name = 'MixtureAffineSigmoidBijector'):
@@ -135,13 +133,13 @@ class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
     def sigmoid(x, a, b, c):
       z = (jax.scipy.special.logit(x) +b )* a
       y = jax.nn.sigmoid(z) * (1 - c) + c * x
-      return y 
+      return y
 
     # Rescaled bijection
     def f(params, x):
       a, b, c, p = params
       a_in, b_in = [0. - 1e-1, 1. + 1e-1]
-      x = x[...,jnp.newaxis]
+
       x = (x - a_in) / (b_in - a_in)
       x0 = (jnp.zeros_like(x) - a_in)/ ( b_in - a_in)
       x1 = (jnp.ones_like(x) - a_in) /( b_in - a_in)
@@ -149,9 +147,8 @@ class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
       y = sigmoid(x, a, b, c)
       y0 = sigmoid(x0, a, b, c)
       y1 = sigmoid(x1, a, b, c)
-      
-      y = (y - y0)/(y1 - y0)
 
+      y = (y - y0)/(y1 - y0)
       return jnp.sum(p*(y*(1-c) + c *x), axis=0)
     self.f = f
 
@@ -159,14 +156,17 @@ class MixtureAffineSigmoidBijector(tfp.bijectors.Bijector):
     self.inv_f = make_inverse_fn(f)
 
   def _forward(self, x):
-    return jax.vmap(self.f)([self.a, self.b, self.c, self.p], x[...,0]).reshape(x.shape)
+    return jax.vmap(jax.vmap(self.f))([self.a, self.b, self.c, self.p], x)
+
 
   def _inverse(self, y):
-      return jax.vmap(self.inv_f)([self.a, self.b, self.c, self.p], y[...,0]).reshape(y.shape)
+    return jax.vmap(jax.vmap(self.inv_f))([self.a, self.b, self.c, self.p], y)
 
   def _forward_log_det_jacobian(self, x):
+
     def logdet_fn(x,a,b,c,p):
-      g = jax.grad(self.f, argnums=1)([a,b,c,p], x[...,0])
+      g = jax.grad(self.f, argnums=1)([a,b,c,p], x)
       s, logdet = jnp.linalg.slogdet(jnp.atleast_2d(g))
       return s*logdet
-    return jax.vmap(logdet_fn)(x, self.a, self.b, self.c, self.p)
+
+    return jax.vmap(jax.vmap(logdet_fn))(x, self.a, self.b, self.c, self.p)
